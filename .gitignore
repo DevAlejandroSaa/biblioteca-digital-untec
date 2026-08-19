@@ -1,0 +1,43 @@
+# Compiled class files
+*.class
+
+# Log files
+*.log
+
+# Maven
+target/
+
+# Eclipse
+.classpath
+.project
+.settings/
+
+# Eclipse JDT
+.factorypath
+
+# Eclipse metadata
+.metadata/
+
+# Java
+hs_err_pid*
+replay_pid*
+
+# Tomcat
+work/
+temp/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Local environment
+.env
+.env.*
+
+# Docker generated data
+docker/volumes/

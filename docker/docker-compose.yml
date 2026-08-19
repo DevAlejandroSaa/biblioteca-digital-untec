@@ -1,0 +1,6 @@
+networks:
+  net_interna:
+    name: net-untec
+    driver: bridge
+    ipam:
+      driver: default
