@@ -20,8 +20,7 @@ COPY --from=maven /usr/share/maven /usr/share/maven
 ENV MAVEN_HOME=/usr/share/maven
 ENV PATH="${MAVEN_HOME}/bin:${PATH}"
 
-COPY --from=maven /app/target/biblioteca-digital-untec.war \
-    /usr/local/tomcat/webapps/ROOT.war
+COPY --from=maven /app/target/ROOT.war /usr/local/tomcat/webapps/ROOT.war
 
 WORKDIR /usr/local/tomcat
 
