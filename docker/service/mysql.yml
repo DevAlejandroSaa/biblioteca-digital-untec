@@ -1,0 +1,24 @@
+services:
+  # ─── MYSQL ───────────────────────────────
+  untec-mysql:
+    image: mysql:8
+    container_name: untec-mysql
+    restart: unless-stopped
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - "untec-mysql:/var/lib/mysql"
+    networks:
+      net_interna:
+        aliases:
+          - net-untec-mysql
+
+volumes:
+  untec-mysql:
+    driver: local
+    driver_opts:
+      type: "none"
+      o: "bind"
+      device: "./volumes/mysql/data"

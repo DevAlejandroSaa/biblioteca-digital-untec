@@ -1,0 +1,13 @@
+services:
+  # ─── APP ───────────────────────────────
+  untec-app:
+    container_name: untec-app
+    build:
+      context: ../app/biblioteca-digital-untec
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    networks:
+      net_interna:
+        aliases:
+          - net-untec-app
