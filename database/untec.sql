@@ -29,6 +29,12 @@ CREATE TABLE reglas_puntos (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
+-- Niveles de préstamo de libros:
+-- Nivel 0: 0–19 puntos  -> 0 libros
+-- Nivel 1: 20–39 puntos -> 1 libro
+-- Nivel 2: 40–59 puntos -> 2 libros
+-- Nivel 3: 60–79 puntos -> 3 libros
+-- Nivel 4: 80–100 puntos -> 5 libros
 CREATE TABLE puntos_estudiante (
     id INT AUTO_INCREMENT PRIMARY KEY,
     usuario_id INT NOT NULL UNIQUE,
@@ -44,7 +50,7 @@ CREATE TABLE libros (
     autor VARCHAR(150) NOT NULL,
     isbn VARCHAR(20) NOT NULL UNIQUE,
     editorial VARCHAR(150),
-    anio_publicacion YEAR,
+    anio_publicacion DATE,
     categoria VARCHAR(100),
     cantidad INT NOT NULL DEFAULT 1,
     cantidad_disponible INT NOT NULL DEFAULT 1,

@@ -1,5 +1,7 @@
 package cl.untec.model;
 
+import java.time.LocalDate;
+
 public class Libro {
 
     private int id;
@@ -7,7 +9,7 @@ public class Libro {
     private String autor;
     private String isbn;
     private String editorial;
-    private int anioPublicacion;
+    private LocalDate anioPublicacion;
     private String categoria;
     private int cantidad;
     private int cantidadDisponible;
@@ -16,7 +18,7 @@ public class Libro {
     }
 
     public Libro(int id, String titulo, String autor, String isbn,
-            String editorial, int anioPublicacion, String categoria,
+            String editorial, LocalDate anioPublicacion, String categoria,
             int cantidad, int cantidadDisponible) {
         this.id = id;
         this.titulo = titulo;
@@ -69,11 +71,11 @@ public class Libro {
         this.editorial = editorial;
     }
 
-    public int getAnioPublicacion() {
+    public LocalDate getAnioPublicacion() {
         return anioPublicacion;
     }
 
-    public void setAnioPublicacion(int anioPublicacion) {
+    public void setAnioPublicacion(LocalDate anioPublicacion) {
         this.anioPublicacion = anioPublicacion;
     }
 

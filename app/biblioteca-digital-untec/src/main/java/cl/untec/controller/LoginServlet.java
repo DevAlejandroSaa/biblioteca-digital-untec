@@ -37,7 +37,7 @@ public class LoginServlet extends HttpServlet {
         String username = request.getParameter("username");
         String password = request.getParameter("password");
 
-        if (ValidacionesUtils.validarCredenciales(username, password)) {
+        if (ValidacionesUtils.esTextoValido(username) && ValidacionesUtils.esTextoValido(password)) {
             request.setAttribute("error", "Debe ingresar usuario y contraseña.");
             request.getRequestDispatcher(PATH).forward(request, response);
             return;
