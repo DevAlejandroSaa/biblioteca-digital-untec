@@ -21,8 +21,7 @@ import cl.untec.util.ValidacionesUtils;
 public class LibroServlet extends HttpServlet {
 
     private static final long serialVersionUID = 1L;
-
-    private static final String PATH = "/WEB-INF/views/libro.jsp";
+    private static final String PATH = "/WEB-INF/views/libros.jsp";
 
     private final LibroDAO libroDAO = new LibroDAO();
     private final PrestamoDAO prestamoDAO = new PrestamoDAO();
