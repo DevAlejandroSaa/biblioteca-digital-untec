@@ -9,16 +9,29 @@ import java.util.ArrayList;
 import java.util.List;
 
 import cl.untec.model.Libro;
+import cl.untec.model.Paginacion;
 import cl.untec.model.Resultado;
 import cl.untec.util.ConexionDB;
+import cl.untec.util.PaginacionUtils;
 import cl.untec.util.ValidacionesUtils;
 
 public class LibroDAO {
 
-    public Resultado<List<Libro>> obtenerLibrosFiltrados(Libro libro) {
+    private final int registrosPorPagina;
+
+    public LibroDAO() {
+        this.registrosPorPagina = PaginacionUtils.obtenerRegistrosPorPagina();
+    }
+
+    public Resultado<Paginacion<Libro>> obtenerLibrosFiltrados(Libro libro, int paginaActual) {
         StringBuilder sql = new StringBuilder(
                 "SELECT id, titulo, autor, isbn, editorial, "
                         + "anio_publicacion, categoria, cantidad, cantidad_disponible "
+                        + "FROM libros "
+                        + "WHERE 1 = 1");
+
+        StringBuilder sqlTotal = new StringBuilder(
+                "SELECT COUNT(*) "
                         + "FROM libros "
                         + "WHERE 1 = 1");
 
@@ -26,53 +39,82 @@ public class LibroDAO {
 
         if (ValidacionesUtils.esTextoValido(libro.getTitulo())) {
             sql.append(" AND titulo LIKE ?");
+            sqlTotal.append(" AND titulo LIKE ?");
             parametros.add("%" + libro.getTitulo().trim() + "%");
         }
 
         if (ValidacionesUtils.esTextoValido(libro.getAutor())) {
             sql.append(" AND autor LIKE ?");
+            sqlTotal.append(" AND autor LIKE ?");
             parametros.add("%" + libro.getAutor().trim() + "%");
         }
 
         if (ValidacionesUtils.esTextoValido(libro.getIsbn())) {
             sql.append(" AND isbn LIKE ?");
+            sqlTotal.append(" AND isbn LIKE ?");
             parametros.add("%" + libro.getIsbn().trim() + "%");
         }
 
         if (ValidacionesUtils.esTextoValido(libro.getEditorial())) {
             sql.append(" AND editorial LIKE ?");
+            sqlTotal.append(" AND editorial LIKE ?");
             parametros.add("%" + libro.getEditorial().trim() + "%");
         }
 
         if (libro.getAnioPublicacion() != null) {
             sql.append(" AND anio_publicacion = ?");
+            sqlTotal.append(" AND anio_publicacion = ?");
             parametros.add(Date.valueOf(libro.getAnioPublicacion()));
         }
 
         if (ValidacionesUtils.esTextoValido(libro.getCategoria())) {
             sql.append(" AND categoria LIKE ?");
+            sqlTotal.append(" AND categoria LIKE ?");
             parametros.add("%" + libro.getCategoria().trim() + "%");
         }
 
-        sql.append(" ORDER BY titulo ASC");
+        int totalRegistros;
 
-        List<Libro> libros = new ArrayList<>();
+        try (Connection conexion = ConexionDB.obtenerConexion()) {
+            totalRegistros = obtenerTotalRegistros(
+                    conexion,
+                    sqlTotal.toString(),
+                    parametros);
 
-        try (Connection conexion = ConexionDB.obtenerConexion();
-                PreparedStatement sentencia = conexion.prepareStatement(sql.toString())) {
-            for (int i = 0; i < parametros.size(); i++) {
-                sentencia.setObject(i + 1, parametros.get(i));
-            }
+            int totalPaginas = calcularTotalPaginas(totalRegistros);
+            int pagina = validarPagina(paginaActual, totalPaginas);
+            int offset = calcularOffset(pagina);
 
-            try (ResultSet resultado = sentencia.executeQuery()) {
-                while (resultado.next()) {
-                    libros.add(mapearLibro(resultado));
+            sql.append(" ORDER BY titulo ASC LIMIT ? OFFSET ?");
+
+            List<Libro> libros = new ArrayList<>();
+
+            try (PreparedStatement sentencia = conexion.prepareStatement(sql.toString())) {
+                int indice = 1;
+
+                for (Object parametro : parametros) {
+                    sentencia.setObject(indice++, parametro);
+                }
+
+                sentencia.setInt(indice++, registrosPorPagina);
+                sentencia.setInt(indice, offset);
+
+                try (ResultSet resultado = sentencia.executeQuery()) {
+                    while (resultado.next()) {
+                        libros.add(mapearLibro(resultado));
+                    }
                 }
             }
 
+            Paginacion<Libro> paginacion = new Paginacion<>(
+                    libros,
+                    pagina,
+                    registrosPorPagina,
+                    totalRegistros);
+
             return new Resultado<>(
                     true,
-                    libros,
+                    paginacion,
                     "Libros obtenidos correctamente.",
                     null);
         } catch (SQLException e) {
@@ -248,6 +290,55 @@ public class LibroDAO {
                     "No fue posible eliminar el libro.",
                     e.getMessage());
         }
+    }
+
+    private int obtenerTotalRegistros(
+            Connection conexion,
+            String sql,
+            List<Object> parametros) throws SQLException {
+
+        try (PreparedStatement sentencia = conexion.prepareStatement(sql)) {
+            for (int i = 0; i < parametros.size(); i++) {
+                sentencia.setObject(i + 1, parametros.get(i));
+            }
+
+            try (ResultSet resultado = sentencia.executeQuery()) {
+                if (resultado.next()) {
+                    return resultado.getInt(1);
+                }
+            }
+        }
+
+        return 0;
+    }
+
+    private int calcularTotalPaginas(int totalRegistros) {
+        if (totalRegistros == 0) {
+            return 0;
+        }
+
+        return (int) Math.ceil(
+                (double) totalRegistros / registrosPorPagina);
+    }
+
+    private int calcularOffset(int paginaActual) {
+        return (paginaActual - 1) * registrosPorPagina;
+    }
+
+    private int validarPagina(int paginaActual, int totalPaginas) {
+        if (totalPaginas == 0) {
+            return 1;
+        }
+
+        if (paginaActual < 1) {
+            return 1;
+        }
+
+        if (paginaActual > totalPaginas) {
+            return totalPaginas;
+        }
+
+        return paginaActual;
     }
 
     private Libro mapearLibro(ResultSet resultado) throws SQLException {

@@ -7,36 +7,74 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
+import cl.untec.model.Paginacion;
 import cl.untec.model.Prestamo;
 import cl.untec.model.Resultado;
 import cl.untec.util.ConexionDB;
+import cl.untec.util.PaginacionUtils;
 
 public class PrestamoDAO {
 
-    public Resultado<List<Prestamo>> obtenerPrestamosPorUsuarioId(int usuarioId) {
+    private final int registrosPorPagina;
+
+    public PrestamoDAO() {
+        this.registrosPorPagina = PaginacionUtils.obtenerRegistrosPorPagina();
+    }
+
+    public Resultado<Paginacion<Prestamo>> obtenerPrestamosPorUsuarioId(
+            int usuarioId,
+            int paginaActual) {
+
         String sql = "SELECT id, usuario_id, libro_id, fecha_prestamo, "
                 + "fecha_limite, fecha_devolucion, estado "
                 + "FROM prestamos "
                 + "WHERE usuario_id = ? "
-                + "ORDER BY fecha_prestamo DESC";
+                + "ORDER BY fecha_prestamo DESC "
+                + "LIMIT ? OFFSET ?";
 
-        List<Prestamo> prestamos = new ArrayList<>();
+        String sqlTotal = "SELECT COUNT(*) "
+                + "FROM prestamos "
+                + "WHERE usuario_id = ?";
 
-        try (Connection conexion = ConexionDB.obtenerConexion();
-                PreparedStatement sentencia = conexion.prepareStatement(sql)) {
-            sentencia.setInt(1, usuarioId);
+        int totalRegistros;
 
-            try (ResultSet resultado = sentencia.executeQuery()) {
-                while (resultado.next()) {
-                    prestamos.add(mapearPrestamo(resultado));
+        try (Connection conexion = ConexionDB.obtenerConexion()) {
+
+            totalRegistros = obtenerTotalRegistros(
+                    conexion,
+                    sqlTotal,
+                    usuarioId);
+
+            int totalPaginas = calcularTotalPaginas(totalRegistros);
+            int pagina = validarPagina(paginaActual, totalPaginas);
+            int offset = calcularOffset(pagina);
+
+            List<Prestamo> prestamos = new ArrayList<>();
+
+            try (PreparedStatement sentencia = conexion.prepareStatement(sql)) {
+                sentencia.setInt(1, usuarioId);
+                sentencia.setInt(2, registrosPorPagina);
+                sentencia.setInt(3, offset);
+
+                try (ResultSet resultado = sentencia.executeQuery()) {
+                    while (resultado.next()) {
+                        prestamos.add(mapearPrestamo(resultado));
+                    }
                 }
             }
 
+            Paginacion<Prestamo> paginacion = new Paginacion<>(
+                    prestamos,
+                    pagina,
+                    registrosPorPagina,
+                    totalRegistros);
+
             return new Resultado<>(
                     true,
-                    prestamos,
+                    paginacion,
                     "Préstamos del usuario obtenidos correctamente.",
                     null);
+
         } catch (SQLException e) {
             return new Resultado<>(
                     false,
@@ -54,9 +92,11 @@ public class PrestamoDAO {
 
         try (Connection conexion = ConexionDB.obtenerConexion();
                 PreparedStatement sentencia = conexion.prepareStatement(sql)) {
+
             sentencia.setInt(1, prestamoId);
 
             try (ResultSet resultado = sentencia.executeQuery()) {
+
                 if (resultado.next()) {
                     return new Resultado<>(
                             true,
@@ -71,6 +111,7 @@ public class PrestamoDAO {
                         "No existe un préstamo con el ID indicado.",
                         null);
             }
+
         } catch (SQLException e) {
             return new Resultado<>(
                     false,
@@ -88,6 +129,7 @@ public class PrestamoDAO {
 
         try (Connection conexion = ConexionDB.obtenerConexion();
                 PreparedStatement sentencia = conexion.prepareStatement(sql)) {
+
             sentencia.setInt(1, prestamo.getUsuarioId());
             sentencia.setInt(2, prestamo.getLibroId());
             sentencia.setDate(3, prestamo.getFechaPrestamo());
@@ -116,6 +158,7 @@ public class PrestamoDAO {
                     false,
                     "No fue posible crear el préstamo.",
                     null);
+
         } catch (SQLException e) {
             return new Resultado<>(
                     false,
@@ -137,6 +180,7 @@ public class PrestamoDAO {
 
         try (Connection conexion = ConexionDB.obtenerConexion();
                 PreparedStatement sentencia = conexion.prepareStatement(sql)) {
+
             sentencia.setInt(1, prestamo.getUsuarioId());
             sentencia.setInt(2, prestamo.getLibroId());
             sentencia.setDate(3, prestamo.getFechaPrestamo());
@@ -166,6 +210,7 @@ public class PrestamoDAO {
                     false,
                     "No existe un préstamo con el ID indicado.",
                     null);
+
         } catch (SQLException e) {
             return new Resultado<>(
                     false,
@@ -173,6 +218,55 @@ public class PrestamoDAO {
                     "No fue posible actualizar el préstamo.",
                     e.getMessage());
         }
+    }
+
+    private int obtenerTotalRegistros(
+            Connection conexion,
+            String sql,
+            int usuarioId) throws SQLException {
+
+        try (PreparedStatement sentencia = conexion.prepareStatement(sql)) {
+
+            sentencia.setInt(1, usuarioId);
+
+            try (ResultSet resultado = sentencia.executeQuery()) {
+
+                if (resultado.next()) {
+                    return resultado.getInt(1);
+                }
+            }
+        }
+
+        return 0;
+    }
+
+    private int calcularTotalPaginas(int totalRegistros) {
+        if (totalRegistros == 0) {
+            return 0;
+        }
+
+        return (int) Math.ceil(
+                (double) totalRegistros / registrosPorPagina);
+    }
+
+    private int calcularOffset(int paginaActual) {
+        return (paginaActual - 1) * registrosPorPagina;
+    }
+
+    private int validarPagina(int paginaActual, int totalPaginas) {
+        if (totalPaginas == 0) {
+            return 1;
+        }
+
+        if (paginaActual < 1) {
+            return 1;
+        }
+
+        if (paginaActual > totalPaginas) {
+            return totalPaginas;
+        }
+
+        return paginaActual;
     }
 
     private Prestamo mapearPrestamo(ResultSet resultado) throws SQLException {
