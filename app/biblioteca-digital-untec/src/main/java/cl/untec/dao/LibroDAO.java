@@ -12,145 +12,118 @@ import cl.untec.model.Libro;
 import cl.untec.model.Paginacion;
 import cl.untec.model.Resultado;
 import cl.untec.util.ConexionDB;
+import cl.untec.util.MapeadorRegistro;
 import cl.untec.util.PaginacionUtils;
 import cl.untec.util.ValidacionesUtils;
 
 public class LibroDAO {
 
-    private final int registrosPorPagina;
+    private static final String CAMPOS = "id, titulo, autor, isbn, editorial, anio_publicacion, categoria, cantidad, cantidad_disponible";
 
-    public LibroDAO() {
-        this.registrosPorPagina = PaginacionUtils.obtenerRegistrosPorPagina();
-    }
+    private final MapeadorRegistro<Libro> mapeadorLibro = new MapeadorRegistro<Libro>() {
+        @Override
+        public Libro mapear(ResultSet resultado) throws SQLException {
+            Libro libro = new Libro();
 
-    public Resultado<Paginacion<Libro>> obtenerLibrosFiltrados(Libro libro, int paginaActual) {
-        StringBuilder sql = new StringBuilder(
-                "SELECT id, titulo, autor, isbn, editorial, "
-                        + "anio_publicacion, categoria, cantidad, cantidad_disponible "
-                        + "FROM libros "
-                        + "WHERE 1 = 1");
+            libro.setId(resultado.getInt("id"));
+            libro.setTitulo(resultado.getString("titulo"));
+            libro.setAutor(resultado.getString("autor"));
+            libro.setIsbn(resultado.getString("isbn"));
+            libro.setEditorial(resultado.getString("editorial"));
 
-        StringBuilder sqlTotal = new StringBuilder(
-                "SELECT COUNT(*) "
-                        + "FROM libros "
-                        + "WHERE 1 = 1");
+            Date fechaPublicacion = resultado.getDate("anio_publicacion");
 
-        List<Object> parametros = new ArrayList<>();
-
-        if (ValidacionesUtils.esTextoValido(libro.getTitulo())) {
-            sql.append(" AND titulo LIKE ?");
-            sqlTotal.append(" AND titulo LIKE ?");
-            parametros.add("%" + libro.getTitulo().trim() + "%");
-        }
-
-        if (ValidacionesUtils.esTextoValido(libro.getAutor())) {
-            sql.append(" AND autor LIKE ?");
-            sqlTotal.append(" AND autor LIKE ?");
-            parametros.add("%" + libro.getAutor().trim() + "%");
-        }
-
-        if (ValidacionesUtils.esTextoValido(libro.getIsbn())) {
-            sql.append(" AND isbn LIKE ?");
-            sqlTotal.append(" AND isbn LIKE ?");
-            parametros.add("%" + libro.getIsbn().trim() + "%");
-        }
-
-        if (ValidacionesUtils.esTextoValido(libro.getEditorial())) {
-            sql.append(" AND editorial LIKE ?");
-            sqlTotal.append(" AND editorial LIKE ?");
-            parametros.add("%" + libro.getEditorial().trim() + "%");
-        }
-
-        if (libro.getAnioPublicacion() != null) {
-            sql.append(" AND anio_publicacion = ?");
-            sqlTotal.append(" AND anio_publicacion = ?");
-            parametros.add(Date.valueOf(libro.getAnioPublicacion()));
-        }
-
-        if (ValidacionesUtils.esTextoValido(libro.getCategoria())) {
-            sql.append(" AND categoria LIKE ?");
-            sqlTotal.append(" AND categoria LIKE ?");
-            parametros.add("%" + libro.getCategoria().trim() + "%");
-        }
-
-        int totalRegistros;
-
-        try (Connection conexion = ConexionDB.obtenerConexion()) {
-            totalRegistros = obtenerTotalRegistros(
-                    conexion,
-                    sqlTotal.toString(),
-                    parametros);
-
-            int totalPaginas = calcularTotalPaginas(totalRegistros);
-            int pagina = validarPagina(paginaActual, totalPaginas);
-            int offset = calcularOffset(pagina);
-
-            sql.append(" ORDER BY titulo ASC LIMIT ? OFFSET ?");
-
-            List<Libro> libros = new ArrayList<>();
-
-            try (PreparedStatement sentencia = conexion.prepareStatement(sql.toString())) {
-                int indice = 1;
-
-                for (Object parametro : parametros) {
-                    sentencia.setObject(indice++, parametro);
-                }
-
-                sentencia.setInt(indice++, registrosPorPagina);
-                sentencia.setInt(indice, offset);
-
-                try (ResultSet resultado = sentencia.executeQuery()) {
-                    while (resultado.next()) {
-                        libros.add(mapearLibro(resultado));
-                    }
-                }
+            if (fechaPublicacion != null) {
+                libro.setAnioPublicacion(fechaPublicacion.toLocalDate());
             }
 
-            Paginacion<Libro> paginacion = new Paginacion<>(
-                    libros,
-                    pagina,
-                    registrosPorPagina,
-                    totalRegistros);
+            libro.setCategoria(resultado.getString("categoria"));
+            libro.setCantidad(resultado.getInt("cantidad"));
+            libro.setCantidadDisponible(resultado.getInt("cantidad_disponible"));
 
-            return new Resultado<>(
-                    true,
-                    paginacion,
-                    "Libros obtenidos correctamente.",
-                    null);
-        } catch (SQLException e) {
-            return new Resultado<>(
-                    false,
-                    null,
-                    "No fue posible obtener los libros.",
-                    e.getMessage());
+            return libro;
         }
+    };
+
+    public Resultado<Paginacion<Libro>> obtenerLibrosPaginados(int paginaActual, String titulo, String autor,
+            String isbn, String editorial, String anioPublicacion, String categoria) {
+        StringBuilder condicion = new StringBuilder();
+        List<Object> parametros = new ArrayList<>();
+
+        if (ValidacionesUtils.esTextoValido(titulo)) {
+            condicion.append("titulo LIKE ?");
+            parametros.add("%" + titulo.trim() + "%");
+        }
+
+        if (ValidacionesUtils.esTextoValido(autor)) {
+            agregarCondicion(condicion, "autor LIKE ?");
+            parametros.add("%" + autor.trim() + "%");
+        }
+
+        if (ValidacionesUtils.esTextoValido(isbn)) {
+            agregarCondicion(condicion, "isbn LIKE ?");
+            parametros.add("%" + isbn.trim() + "%");
+        }
+
+        if (ValidacionesUtils.esTextoValido(editorial)) {
+            agregarCondicion(condicion, "editorial LIKE ?");
+            parametros.add("%" + editorial.trim() + "%");
+        }
+
+        if (ValidacionesUtils.esTextoValido(anioPublicacion)) {
+            agregarCondicion(condicion, "anio_publicacion = ?");
+            parametros.add(Date.valueOf(anioPublicacion));
+        }
+
+        if (ValidacionesUtils.esTextoValido(categoria)) {
+            agregarCondicion(condicion, "categoria LIKE ?");
+            parametros.add("%" + categoria.trim() + "%");
+        }
+
+        PaginacionUtils<Libro> paginacion = new PaginacionUtils<>(
+                "libros",
+                CAMPOS,
+                mapeadorLibro);
+
+        return paginacion.obtenerPaginacion(
+                paginaActual,
+                condicion.toString(),
+                parametros,
+                "titulo ASC");
+    }
+
+    private void agregarCondicion(StringBuilder condicion, String nuevaCondicion) {
+        if (condicion.length() > 0) {
+            condicion.append(" AND ");
+        }
+
+        condicion.append(nuevaCondicion);
     }
 
     public Resultado<Libro> obtenerLibroPorId(int libroId) {
-        String sql = "SELECT id, titulo, autor, isbn, editorial, "
-                + "anio_publicacion, categoria, cantidad, cantidad_disponible "
-                + "FROM libros "
-                + "WHERE id = ?";
+        String sql = "SELECT " + CAMPOS + " FROM libros WHERE id = ?";
 
         try (Connection conexion = ConexionDB.obtenerConexion();
                 PreparedStatement sentencia = conexion.prepareStatement(sql)) {
+
             sentencia.setInt(1, libroId);
 
             try (ResultSet resultado = sentencia.executeQuery()) {
                 if (resultado.next()) {
                     return new Resultado<>(
                             true,
-                            mapearLibro(resultado),
+                            mapeadorLibro.mapear(resultado),
                             "Libro obtenido correctamente.",
                             null);
                 }
-
-                return new Resultado<>(
-                        false,
-                        null,
-                        "No existe un libro con el ID indicado.",
-                        null);
             }
+
+            return new Resultado<>(
+                    false,
+                    null,
+                    "No se encontró el libro.",
+                    null);
+
         } catch (SQLException e) {
             return new Resultado<>(
                     false,
@@ -161,13 +134,11 @@ public class LibroDAO {
     }
 
     public Resultado<Boolean> crearLibro(Libro libro) {
-        String sql = "INSERT INTO libros "
-                + "(titulo, autor, isbn, editorial, anio_publicacion, "
-                + "categoria, cantidad, cantidad_disponible) "
-                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO libros (titulo, autor, isbn, editorial, anio_publicacion, categoria, cantidad, cantidad_disponible) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
         try (Connection conexion = ConexionDB.obtenerConexion();
                 PreparedStatement sentencia = conexion.prepareStatement(sql)) {
+
             sentencia.setString(1, libro.getTitulo());
             sentencia.setString(2, libro.getAutor());
             sentencia.setString(3, libro.getIsbn());
@@ -183,21 +154,14 @@ public class LibroDAO {
             sentencia.setInt(7, libro.getCantidad());
             sentencia.setInt(8, libro.getCantidadDisponible());
 
-            int filasAfectadas = sentencia.executeUpdate();
-
-            if (filasAfectadas > 0) {
-                return new Resultado<>(
-                        true,
-                        true,
-                        "Libro creado correctamente.",
-                        null);
-            }
+            int filas = sentencia.executeUpdate();
 
             return new Resultado<>(
-                    false,
-                    false,
-                    "No fue posible crear el libro.",
+                    filas > 0,
+                    filas > 0,
+                    filas > 0 ? "Libro creado correctamente." : "No fue posible crear el libro.",
                     null);
+
         } catch (SQLException e) {
             return new Resultado<>(
                     false,
@@ -208,19 +172,11 @@ public class LibroDAO {
     }
 
     public Resultado<Boolean> actualizarLibro(Libro libro) {
-        String sql = "UPDATE libros SET "
-                + "titulo = ?, "
-                + "autor = ?, "
-                + "isbn = ?, "
-                + "editorial = ?, "
-                + "anio_publicacion = ?, "
-                + "categoria = ?, "
-                + "cantidad = ?, "
-                + "cantidad_disponible = ? "
-                + "WHERE id = ?";
+        String sql = "UPDATE libros SET titulo = ?, autor = ?, isbn = ?, editorial = ?, anio_publicacion = ?, categoria = ?, cantidad = ?, cantidad_disponible = ? WHERE id = ?";
 
         try (Connection conexion = ConexionDB.obtenerConexion();
                 PreparedStatement sentencia = conexion.prepareStatement(sql)) {
+
             sentencia.setString(1, libro.getTitulo());
             sentencia.setString(2, libro.getAutor());
             sentencia.setString(3, libro.getIsbn());
@@ -237,21 +193,14 @@ public class LibroDAO {
             sentencia.setInt(8, libro.getCantidadDisponible());
             sentencia.setInt(9, libro.getId());
 
-            int filasAfectadas = sentencia.executeUpdate();
-
-            if (filasAfectadas > 0) {
-                return new Resultado<>(
-                        true,
-                        true,
-                        "Libro actualizado correctamente.",
-                        null);
-            }
+            int filas = sentencia.executeUpdate();
 
             return new Resultado<>(
-                    false,
-                    false,
-                    "No existe un libro con el ID indicado.",
+                    filas > 0,
+                    filas > 0,
+                    filas > 0 ? "Libro actualizado correctamente." : "No se encontró el libro.",
                     null);
+
         } catch (SQLException e) {
             return new Resultado<>(
                     false,
@@ -266,23 +215,17 @@ public class LibroDAO {
 
         try (Connection conexion = ConexionDB.obtenerConexion();
                 PreparedStatement sentencia = conexion.prepareStatement(sql)) {
+
             sentencia.setInt(1, libroId);
 
-            int filasAfectadas = sentencia.executeUpdate();
-
-            if (filasAfectadas > 0) {
-                return new Resultado<>(
-                        true,
-                        true,
-                        "Libro eliminado correctamente.",
-                        null);
-            }
+            int filas = sentencia.executeUpdate();
 
             return new Resultado<>(
-                    false,
-                    false,
-                    "No existe un libro con el ID indicado.",
+                    filas > 0,
+                    filas > 0,
+                    filas > 0 ? "Libro eliminado correctamente." : "No se encontró el libro.",
                     null);
+
         } catch (SQLException e) {
             return new Resultado<>(
                     false,
@@ -290,76 +233,5 @@ public class LibroDAO {
                     "No fue posible eliminar el libro.",
                     e.getMessage());
         }
-    }
-
-    private int obtenerTotalRegistros(
-            Connection conexion,
-            String sql,
-            List<Object> parametros) throws SQLException {
-
-        try (PreparedStatement sentencia = conexion.prepareStatement(sql)) {
-            for (int i = 0; i < parametros.size(); i++) {
-                sentencia.setObject(i + 1, parametros.get(i));
-            }
-
-            try (ResultSet resultado = sentencia.executeQuery()) {
-                if (resultado.next()) {
-                    return resultado.getInt(1);
-                }
-            }
-        }
-
-        return 0;
-    }
-
-    private int calcularTotalPaginas(int totalRegistros) {
-        if (totalRegistros == 0) {
-            return 0;
-        }
-
-        return (int) Math.ceil(
-                (double) totalRegistros / registrosPorPagina);
-    }
-
-    private int calcularOffset(int paginaActual) {
-        return (paginaActual - 1) * registrosPorPagina;
-    }
-
-    private int validarPagina(int paginaActual, int totalPaginas) {
-        if (totalPaginas == 0) {
-            return 1;
-        }
-
-        if (paginaActual < 1) {
-            return 1;
-        }
-
-        if (paginaActual > totalPaginas) {
-            return totalPaginas;
-        }
-
-        return paginaActual;
-    }
-
-    private Libro mapearLibro(ResultSet resultado) throws SQLException {
-        Libro libro = new Libro();
-
-        libro.setId(resultado.getInt("id"));
-        libro.setTitulo(resultado.getString("titulo"));
-        libro.setAutor(resultado.getString("autor"));
-        libro.setIsbn(resultado.getString("isbn"));
-        libro.setEditorial(resultado.getString("editorial"));
-
-        Date fechaPublicacion = resultado.getDate("anio_publicacion");
-
-        if (fechaPublicacion != null) {
-            libro.setAnioPublicacion(fechaPublicacion.toLocalDate());
-        }
-
-        libro.setCategoria(resultado.getString("categoria"));
-        libro.setCantidad(resultado.getInt("cantidad"));
-        libro.setCantidadDisponible(resultado.getInt("cantidad_disponible"));
-
-        return libro;
     }
 }
