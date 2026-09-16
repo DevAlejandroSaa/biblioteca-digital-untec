@@ -147,14 +147,14 @@ public class LibroServlet extends HttpServlet {
         Resultado<Libro> resultadoLibro = libroDAO.obtenerLibroPorId(libroId);
 
         if (!resultadoLibro.isExito()) {
-            response.sendRedirect(request.getContextPath() + "/libro?error=libro");
+            response.sendRedirect(request.getContextPath() + "/libros?error=libro");
             return;
         }
 
         Libro libro = resultadoLibro.getDatos();
 
         if (libro.getCantidadDisponible() <= 0) {
-            response.sendRedirect(request.getContextPath() + "/libro?error=disponibilidad");
+            response.sendRedirect(request.getContextPath() + "/libros?error=disponibilidad");
             return;
         }
 
@@ -168,9 +168,9 @@ public class LibroServlet extends HttpServlet {
         Resultado<Boolean> resultado = prestamoDAO.crearPrestamo(prestamo);
 
         if (resultado.isExito()) {
-            response.sendRedirect(request.getContextPath() + "/libro?mensaje=solicitud");
+            response.sendRedirect(request.getContextPath() + "/libros?mensaje=solicitud");
         } else {
-            response.sendRedirect(request.getContextPath() + "/libro?error=solicitud");
+            response.sendRedirect(request.getContextPath() + "/libros?error=solicitud");
         }
     }
 
@@ -183,16 +183,16 @@ public class LibroServlet extends HttpServlet {
         Libro libro = obtenerLibroDesdeRequest(request);
 
         if (libro == null) {
-            response.sendRedirect(request.getContextPath() + "/libro?error=datos");
+            response.sendRedirect(request.getContextPath() + "/libros?error=datos");
             return;
         }
 
         Resultado<Boolean> resultado = libroDAO.crearLibro(libro);
 
         if (resultado.isExito()) {
-            response.sendRedirect(request.getContextPath() + "/libro?mensaje=creado");
+            response.sendRedirect(request.getContextPath() + "/libros?mensaje=creado");
         } else {
-            response.sendRedirect(request.getContextPath() + "/libro?error=crear");
+            response.sendRedirect(request.getContextPath() + "/libros?error=crear");
         }
     }
 
@@ -212,7 +212,7 @@ public class LibroServlet extends HttpServlet {
         Libro libro = obtenerLibroDesdeRequest(request);
 
         if (libro == null) {
-            response.sendRedirect(request.getContextPath() + "/libro?error=datos");
+            response.sendRedirect(request.getContextPath() + "/libros?error=datos");
             return;
         }
 
@@ -221,9 +221,9 @@ public class LibroServlet extends HttpServlet {
         Resultado<Boolean> resultado = libroDAO.actualizarLibro(libro);
 
         if (resultado.isExito()) {
-            response.sendRedirect(request.getContextPath() + "/libro?mensaje=actualizado");
+            response.sendRedirect(request.getContextPath() + "/libros?mensaje=actualizado");
         } else {
-            response.sendRedirect(request.getContextPath() + "/libro?error=actualizar");
+            response.sendRedirect(request.getContextPath() + "/libros?error=actualizar");
         }
     }
 
@@ -243,9 +243,9 @@ public class LibroServlet extends HttpServlet {
         Resultado<Boolean> resultado = libroDAO.eliminarLibroPorId(libroId);
 
         if (resultado.isExito()) {
-            response.sendRedirect(request.getContextPath() + "/libro?mensaje=eliminado");
+            response.sendRedirect(request.getContextPath() + "/libros?mensaje=eliminado");
         } else {
-            response.sendRedirect(request.getContextPath() + "/libro?error=eliminar");
+            response.sendRedirect(request.getContextPath() + "/libros?error=eliminar");
         }
     }
 
