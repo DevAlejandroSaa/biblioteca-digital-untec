@@ -9,6 +9,7 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: root
     volumes:
+      - "../database:docker-entrypoint-initdb.d:ro"
       - "untec-mysql:/var/lib/mysql"
     networks:
       net_interna:
